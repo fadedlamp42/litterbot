@@ -1,0 +1,80 @@
+[project]
+name = "litterbot"
+version = "0.1.0"
+description = "CLI and MCP server for controlling Whisker Litter Robot devices"
+authors = [
+    {name = "Peter Gomez", email = "fadedlamp42@gmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pylitterbot (>=2025.1.0)",
+    "mcp[cli] (>=1.0.0)",
+    "prism-shared-python",
+]
+
+[tool.poetry]
+packages = [{include = "litterbot", from = "src"}]
+
+[tool.poetry.dependencies]
+prism-shared-python = {path = "../../../prism/repositories/prism-shared-python", develop = true}
+
+[tool.poetry.scripts]
+litterbot = "litterbot.cli:main"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+# -- ruff (linting + formatting) --
+
+[tool.ruff]
+target-version = "py311"
+line-length = 99
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "F",      # pyflakes - unused imports, undefined names
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "I",      # isort - import ordering
+    "N",      # pep8-naming
+    "UP",     # pyupgrade - modernize syntax
+    "B",      # flake8-bugbear - common pitfalls
+    "SIM",    # flake8-simplify
+    "RUF",    # ruff-specific rules
+    "C4",     # flake8-comprehensions
+    "PIE",    # flake8-pie - misc lints
+    "PT",     # flake8-pytest-style
+    "RET",    # flake8-return
+    "TCH",    # flake8-type-checking - move imports behind TYPE_CHECKING
+    "LOG",    # flake8-logging
+]
+ignore = [
+    "E501",   # line length handled by formatter
+    "UP031",  # we prefer %(name)s style formatting per project convention
+    "RET504", # unnecessary assignment before return (readability preference)
+    "SIM108", # ternary instead of if/else (readability preference)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["litterbot"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+# -- pytest --
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "ruff (>=0.15.5,<0.16.0)",
+    "pre-commit (>=4.5.1,<5.0.0)",
+    "pytest (>=9.0.2,<10.0.0)"
+]
