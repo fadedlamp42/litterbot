@@ -7,9 +7,33 @@ via the Whisker cloud API. designed for stdio transport.
 from __future__ import annotations
 
 import json
+import logging
+import sys
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+# stdio MCP servers MUST keep stdout reserved for JSON-RPC frames. anything
+# else written to stdout (FastMCP's "Processing request" rich-formatted logs,
+# pylitterbot warnings, botocore credential-discovery messages, etc.) corrupts
+# the JSON-RPC channel and the client logs a pydantic validation error per
+# stray line.
+#
+# remediation:
+#   1. swap sys.stdout for sys.stderr at the python level BEFORE importing any
+#      third-party module — this catches anything that captures `sys.stdout`
+#      at import time and writes through it later (rich, loguru, etc).
+#   2. restore the real stdout only after FastMCP/MCP have grabbed their own
+#      reference to it for JSON-RPC framing inside `mcp.run(transport="stdio")`.
+#   3. force the root logger to stderr at WARNING level as a belt-and-braces
+#      safeguard for anything that re-resolves sys.stdout late.
+_real_stdout = sys.stdout
+sys.stdout = sys.stderr  # third-party modules imported below pick this up
+logging.basicConfig(
+    level=logging.WARNING,
+    handlers=[logging.StreamHandler(stream=sys.stderr)],
+    force=True,
+)
+
+from mcp.server.fastmcp import FastMCP  # noqa: E402  (import after stdout swap is intentional)
 
 from litterbot.account import connect_account, find_robot
 from litterbot.robot import (
@@ -24,6 +48,10 @@ mcp = FastMCP(
         "use 'list_robots' first to discover available devices, "
         "then target specific robots by name or serial."
     ),
+    # FastMCP defaults to INFO and routes via rich.logging.RichHandler which
+    # writes to stdout — fatal for stdio JSON-RPC. ERROR keeps the channel
+    # quiet under normal use; warnings still go to stderr via root logger.
+    log_level="ERROR",
 )
 
 
@@ -299,4 +327,8 @@ async def rename_robot(new_name: str, target: str) -> str:
 
 
 if __name__ == "__main__":
+    # restore the real stdout right before mcp.run() so JSON-RPC frames reach
+    # the client. anything imported above that captured `sys.stdout` already
+    # has the stderr-aliased reference and will keep writing to stderr.
+    sys.stdout = _real_stdout
     mcp.run(transport="stdio")
